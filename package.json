@@ -7,6 +7,7 @@
     "build": "rspack build",
     "build:baseline": "rspack build --env variant=baseline",
     "build:before": "rspack build --env variant=before",
+    "build:before-replace": "rspack build --env variant=before-replace",
     "build:before-sms": "rspack build --env variant=before-sms",
     "build:after-good": "rspack build --env variant=after-good",
     "build:after-bad": "rspack build --env variant=after-bad",

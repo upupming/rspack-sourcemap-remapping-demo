@@ -83,6 +83,30 @@ class BeforeDevToolingSourceMapSourcePlugin {
   }
 }
 
+class BeforeDevToolingReplaceSourcePlugin {
+  apply(compiler) {
+    compiler.hooks.thisCompilation.tap('BeforeDevToolingReplaceSourcePlugin', (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'BeforeDevToolingReplaceSourcePlugin',
+          stage: rspack.Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE,
+        },
+        () => {
+          for (const asset of compilation.getAssets()) {
+            if (asset.name !== 'bundle.js') {
+              continue
+            }
+
+            const source = new rspack.sources.ReplaceSource(asset.source, asset.name)
+            source.insert(0, '// injected before DEV_TOOLING with ReplaceSource\n')
+            compilation.updateAsset(asset.name, source, asset.info)
+          }
+        },
+      )
+    })
+  }
+}
+
 class AfterDevToolingBannerPlugin {
   constructor({ updateMap }) {
     this.updateMap = updateMap
@@ -155,6 +179,10 @@ module.exports = (env = {}) => {
 
   if (variant === 'before') {
     plugins.push(new BeforeDevToolingBannerPlugin())
+  }
+
+  if (variant === 'before-replace') {
+    plugins.push(new BeforeDevToolingReplaceSourcePlugin())
   }
 
   if (variant === 'before-sms') {

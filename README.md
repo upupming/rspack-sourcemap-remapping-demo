@@ -4,6 +4,7 @@
 
 - `baseline`：不修改 bundle
 - `before`：在 `DEV_TOOLING` 之前用 `ConcatSource` prepend 一行
+- `before-replace`：在 `DEV_TOOLING` 之前用 `ReplaceSource` 插入一行
 - `before-sms`：在 `DEV_TOOLING` 之前先生成 transform map，再用 `SourceMapSource`
 - `after-good`：在 `DEV_TOOLING` 之后先生成 transform map，再用 `@ampproject/remapping`
 - `after-bad`：在 `DEV_TOOLING` 之后只改 JS，不更新 map
@@ -20,6 +21,7 @@
 pnpm install
 pnpm run build:baseline
 pnpm run build:before
+pnpm run build:before-replace
 pnpm run build:before-sms
 pnpm run build:after-good
 pnpm run build:after-bad
@@ -54,6 +56,35 @@ REPORT
 - 不需要你自己去读写 `.map`
 
 示例见 [rspack.config.js](/Users/bytedance/projects/rspack-sourcemap-remapping-demo/rspack.config.js#L12) 里的 `BeforeDevToolingBannerPlugin`。
+
+## 什么时候用 `ReplaceSource`
+
+适合“我已经有一个现成的 `Source`，现在只想按 generated code 的位置做局部插入、替换或删除”。
+
+它比 `ConcatSource` 更灵活，比 `SourceMapSource` 更省事，尤其适合：
+
+- 给最终 bundle 某个位置插入一段小代码
+- 替换固定区间的文案、包装代码或尾注
+- 在 `DEV_TOOLING` 之前做小范围编辑，并继续复用 bundler 的 `Source` 链条
+
+最常见的写法是：
+
+```js
+const source = new rspack.sources.ReplaceSource(asset.source, asset.name)
+source.insert(0, '// injected before DEV_TOOLING with ReplaceSource\n')
+
+compilation.updateAsset(asset.name, source, asset.info)
+```
+
+实现见 [rspack.config.js](/Users/bytedance/projects/rspack-sourcemap-remapping-demo/rspack.config.js#L80)。
+
+这个项目里的 `before-replace` 变体已经验证过：在 `PROCESS_ASSETS_STAGE_OPTIMIZE` 阶段用 `ReplaceSource#insert` prepend 一行后，生成代码整体下移 1 行，但 sourcemap 仍然能映回源码第 12 / 14 行。
+
+经验上可以这么选：
+
+- 简单前后拼接：`ConcatSource`
+- 按区间插入/替换/删除：`ReplaceSource`
+- 已有 `newCode + transformMap`：`SourceMapSource`
 
 ## 什么时候用 `SourceMapSource`
 
@@ -180,6 +211,10 @@ console log: generated 47:2 -> original 14:0
 total assignment: generated 46:2 -> original 12:0
 console log: generated 48:2 -> original 14:0
 
+[before-replace]
+total assignment: generated 46:2 -> original 12:0
+console log: generated 48:2 -> original 14:0
+
 [before-sms]
 total assignment: generated 46:2 -> original 12:2
 console log: generated 48:2 -> original 14:2
@@ -196,6 +231,7 @@ console log: generated 48:2 -> original 15:0
 可以看到：
 
 - `before` 成功
+- `before-replace` 也成功
 - `before-sms` 也成功，仍然映回源码第 12 / 14 行
 - `after-good` 成功
 - `after-bad` 失败，行号漂到了 13 / 15
@@ -203,6 +239,7 @@ console log: generated 48:2 -> original 15:0
 ## 最后的经验法则
 
 - 简单拼接：优先 `ConcatSource`
+- 按位置做小范围编辑：优先 `ReplaceSource`
 - 已有 `newCode + transformMap`：用 `SourceMapSource`
 - 最终产物后处理：先生成 transform map，再用 `@ampproject/remapping`
 - 只有 `newCode` 没有新 map：不要指望 `SourceMapSource` 或 `remapping` 自动替你修复 sourcemap

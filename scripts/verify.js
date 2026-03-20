@@ -3,7 +3,7 @@ const path = require('path')
 const { SourceMapConsumer } = require('source-map')
 
 const projectRoot = path.join(__dirname, '..')
-const variants = ['baseline', 'before', 'before-sms', 'after-good', 'after-bad']
+const variants = ['baseline', 'before', 'before-replace', 'before-sms', 'after-good', 'after-bad']
 const checks = [
   { label: 'total assignment', originalLine: 12, snippet: 'const total = add(20, 22)' },
   { label: 'console log', originalLine: 14, snippet: "console.log('computed value', doubled)" },
@@ -72,15 +72,18 @@ async function main() {
   for (let i = 0; i < checks.length; i++) {
     const baseline = results.baseline[i]
     const before = results.before[i]
+    const beforeReplace = results['before-replace'][i]
     const beforeSms = results['before-sms'][i]
     const afterGood = results['after-good'][i]
     const afterBad = results['after-bad'][i]
 
     assert(before.generatedLine === baseline.generatedLine + 1, `${before.label}: before build should shift generated line by 1`)
+    assert(beforeReplace.generatedLine === baseline.generatedLine + 1, `${beforeReplace.label}: before-replace build should shift generated line by 1`)
     assert(beforeSms.generatedLine === baseline.generatedLine + 1, `${beforeSms.label}: before-sms build should shift generated line by 1`)
     assert(afterGood.generatedLine === baseline.generatedLine + 1, `${afterGood.label}: after-good build should shift generated line by 1`)
     assert(afterBad.generatedLine === baseline.generatedLine + 1, `${afterBad.label}: after-bad output should also shift generated line by 1`)
     assert(before.originalLineFromMap === before.originalLine, `${before.label}: before build should map back to the original source line`)
+    assert(beforeReplace.originalLineFromMap === beforeReplace.originalLine, `${beforeReplace.label}: before-replace build should map back to the original source line`)
     assert(beforeSms.originalLineFromMap === beforeSms.originalLine, `${beforeSms.label}: before-sms build should map back to the original source line`)
     assert(afterGood.originalLineFromMap === afterGood.originalLine, `${afterGood.label}: after-good build should map back to the original source line`)
     assert(afterBad.originalLineFromMap !== afterBad.originalLine, `${afterBad.label}: after-bad build should expose a stale mapping`)
