@@ -7,6 +7,7 @@ const BANNER_LINES = {
   before: '// injected before DEV_TOOLING',
   afterGood: '// injected after DEV_TOOLING with remapping',
   afterBad: '// injected after DEV_TOOLING without remapping',
+  builtinDevtool: '// injected before SourceMapDevToolPlugin regenerate',
 }
 
 class BeforeDevToolingBannerPlugin {
@@ -173,9 +174,36 @@ class AfterDevToolingBannerPlugin {
   }
 }
 
+class BuiltinSourceMapDevToolFlowPlugin {
+  apply(compiler) {
+    compiler.hooks.thisCompilation.tap('BuiltinSourceMapDevToolFlowPlugin', (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'BuiltinSourceMapDevToolFlowPlugin',
+          stage: rspack.Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE,
+        },
+        () => {
+          for (const asset of compilation.getAssets()) {
+            if (asset.name !== 'bundle.js') {
+              continue
+            }
+
+            compilation.updateAsset(
+              asset.name,
+              new rspack.sources.ConcatSource(`${BANNER_LINES.builtinDevtool}\n`, asset.source),
+              asset.info,
+            )
+          }
+        },
+      )
+    })
+  }
+}
+
 module.exports = (env = {}) => {
   const variant = env.variant || 'baseline'
   const plugins = []
+  const useBuiltinDevtool = variant === 'builtin-devtool'
 
   if (variant === 'before') {
     plugins.push(new BeforeDevToolingBannerPlugin())
@@ -197,10 +225,19 @@ module.exports = (env = {}) => {
     plugins.push(new AfterDevToolingBannerPlugin({ updateMap: false }))
   }
 
+  if (useBuiltinDevtool) {
+    plugins.push(new BuiltinSourceMapDevToolFlowPlugin())
+    plugins.push(
+      new rspack.SourceMapDevToolPlugin({
+        filename: '[file].map',
+      }),
+    )
+  }
+
   return {
     mode: 'development',
     context: __dirname,
-    devtool: 'source-map',
+    devtool: useBuiltinDevtool ? false : 'source-map',
     entry: './src/index.js',
     output: {
       path: path.join(__dirname, 'dist', variant),

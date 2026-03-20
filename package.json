@@ -9,6 +9,7 @@
     "build:before": "rspack build --env variant=before",
     "build:before-replace": "rspack build --env variant=before-replace",
     "build:before-sms": "rspack build --env variant=before-sms",
+    "build:builtin-devtool": "rspack build --env variant=builtin-devtool",
     "build:after-good": "rspack build --env variant=after-good",
     "build:after-bad": "rspack build --env variant=after-bad",
     "verify": "node scripts/verify.js"

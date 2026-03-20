@@ -1,6 +1,6 @@
 # Rspack Sourcemap Remapping Demo
 
-这个项目用一个最小 Rspack 例子验证了 4 种 sourcemap 处理方式：
+这个项目用一个最小 Rspack 例子验证了多种 sourcemap 处理方式：
 
 - `baseline`：不修改 bundle
 - `before`：在 `DEV_TOOLING` 之前用 `ConcatSource` prepend 一行
@@ -20,6 +20,7 @@
 - `before`：`ConcatSource` demo
 - `before-replace`：`ReplaceSource` demo
 - `before-sms`：`SourceMapSource` demo
+- `builtin-devtool`：`SourceMapDevToolPlugin` 内置重生成 demo
 - `after-good`：`@ampproject/remapping` demo
 - `after-bad`：错误示例，对照组
 
@@ -31,6 +32,7 @@ pnpm run build:baseline
 pnpm run build:before
 pnpm run build:before-replace
 pnpm run build:before-sms
+pnpm run build:builtin-devtool
 pnpm run build:after-good
 pnpm run build:after-bad
 pnpm run verify
@@ -217,6 +219,66 @@ pnpm run build:after-good
 3. 执行 `remapping([transformMap, originalMap], () => null)`
 4. 回写新的 JS 和新的 `.map`
 
+## 有没有内置的 Rspack 方案
+
+有，但边界要说清楚。
+
+如果你的目标是：
+
+- 先改 bundle
+- 然后再由 Rspack 重新生成最终 `.map`
+
+那可以用内置的 `SourceMapDevToolPlugin`。
+
+这也是 Rspack 官方文档推荐的精细控制方式。官方文档提到两点：
+
+- `devtool` 需要更细粒度控制时，可以直接使用 `SourceMapDevToolPlugin`
+- 如果你想自己配置这个插件，要先把 `devtool` 设成 `false`
+
+参考：
+
+- [Rspack `devtool` 文档](https://rspack.rs/config/devtool)
+- [Rspack `SourceMapDevToolPlugin` 文档](https://rspack.rs/plugins/webpack/source-map-dev-tool-plugin)
+
+### 这个内置方案适合什么场景
+
+适合“重新组织流程后再生成 map”，不适合“已经 finalize 之后自动修复旧 map”。
+
+也就是说，它适合这种链路：
+
+1. `devtool: false`
+2. 你的插件先修改资产
+3. `new rspack.SourceMapDevToolPlugin(...)` 统一生成最终 sourcemap
+
+### 这个项目里的内置 demo
+
+`builtin-devtool` 变体就是这条链。
+
+它会：
+
+1. 关闭默认 `devtool`
+2. 在 `PROCESS_ASSETS_STAGE_OPTIMIZE` 阶段用 `ConcatSource` prepend 一行
+3. 再由 `rspack.SourceMapDevToolPlugin` 输出 `bundle.js.map`
+
+实现见 [rspack.config.js](/Users/bytedance/projects/rspack-sourcemap-remapping-demo/rspack.config.js#L177)。
+
+直接运行：
+
+```bash
+pnpm run build:builtin-devtool
+```
+
+这个方案的关键点是：
+
+- 它是 Rspack 内置方案
+- 它确实能让“修改后的 bundle”重新拿到正确的 sourcemap
+- 但它不是在 `DEV_TOOLING` finalize 之后自动修复旧 map，而是把 sourcemap 生成推迟到你的修改之后
+
+所以更准确地说：
+
+- “finalize 之后继续改最终产物”这一类，仍然需要自己维护 transform map，常见做法是 `SourceMapSource` 或 `@ampproject/remapping`
+- “把 sourcemap 生成延后到修改之后”这一类，可以直接用内置的 `SourceMapDevToolPlugin`
+
 ## 实测结果
 
 验证脚本见 [verify.js](/Users/bytedance/projects/rspack-sourcemap-remapping-demo/scripts/verify.js#L1)。
@@ -242,6 +304,10 @@ console log: generated 48:2 -> original 14:0
 total assignment: generated 46:2 -> original 12:2
 console log: generated 48:2 -> original 14:2
 
+[builtin-devtool]
+total assignment: generated 46:2 -> original 12:0
+console log: generated 48:2 -> original 14:0
+
 [after-good]
 total assignment: generated 46:2 -> original 12:0
 console log: generated 48:2 -> original 14:0
@@ -256,6 +322,7 @@ console log: generated 48:2 -> original 15:0
 - `before` 成功
 - `before-replace` 也成功
 - `before-sms` 也成功，仍然映回源码第 12 / 14 行
+- `builtin-devtool` 也成功，说明“先改，再由内置插件重出 sourcemap”这条链是可行的
 - `after-good` 成功
 - `after-bad` 失败，行号漂到了 13 / 15
 
@@ -264,5 +331,6 @@ console log: generated 48:2 -> original 15:0
 - 简单拼接：优先 `ConcatSource`
 - 按位置做小范围编辑：优先 `ReplaceSource`
 - 已有 `newCode + transformMap`：用 `SourceMapSource`
+- 想用 Rspack 内置方案重出 `.map`：`devtool: false` + `SourceMapDevToolPlugin`
 - 最终产物后处理：先生成 transform map，再用 `@ampproject/remapping`
 - 只有 `newCode` 没有新 map：不要指望 `SourceMapSource` 或 `remapping` 自动替你修复 sourcemap
