@@ -1,0 +1,22 @@
+{
+  "name": "rspack-sourcemap-remapping-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "rspack build",
+    "build:baseline": "rspack build --env variant=baseline",
+    "build:before": "rspack build --env variant=before",
+    "build:before-sms": "rspack build --env variant=before-sms",
+    "build:after-good": "rspack build --env variant=after-good",
+    "build:after-bad": "rspack build --env variant=after-bad",
+    "verify": "node scripts/verify.js"
+  },
+  "devDependencies": {
+    "@ampproject/remapping": "^2.3.0",
+    "@rspack/cli": "^1.3.6",
+    "@rspack/core": "^1.3.6",
+    "magic-string": "^0.30.17",
+    "source-map": "^0.7.6"
+  }
+}
