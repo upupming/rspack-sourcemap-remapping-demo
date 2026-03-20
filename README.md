@@ -15,6 +15,14 @@
 - `DEV_TOOLING` 之后修改，如果会改变代码位置，必须先生成一层新的 transform map，再和原始 map remap
 - `SourceMapSource` 适合“我已经有 `newCode + transformMap`，现在要把它作为一个带 map 的 `Source` 交回给 bundler”
 
+## Demo 索引
+
+- `before`：`ConcatSource` demo
+- `before-replace`：`ReplaceSource` demo
+- `before-sms`：`SourceMapSource` demo
+- `after-good`：`@ampproject/remapping` demo
+- `after-bad`：错误示例，对照组
+
 ## 安装与运行
 
 ```bash
@@ -177,6 +185,8 @@ compilation.updateAsset(
 
 ## 什么时候用 `@ampproject/remapping`
 
+这个 demo 没有删，仓库里保留的就是 `after-good` 这个变体。
+
 适合在 `DEV_TOOLING` 之后修改最终产物时使用。
 
 这里最容易写错的地方是：`remapping` 不会根据“改前代码/改后代码”自动推导出新 map。它只会合并你已经有的多层 map。
@@ -192,7 +202,20 @@ newCode -> oldCode -> originalSource
 1. 先通过 `MagicString`、Babel、SWC、esbuild 等工具拿到一层 `transformMap`
 2. 再执行 `remapping([transformMap, originalMap], () => null)`
 
-实现见 [rspack.config.js](/Users/bytedance/projects/rspack-sourcemap-remapping-demo/rspack.config.js#L80)。
+实现见 [rspack.config.js](/Users/bytedance/projects/rspack-sourcemap-remapping-demo/rspack.config.js#L124)。
+
+直接运行这组 demo：
+
+```bash
+pnpm run build:after-good
+```
+
+它会在 `PROCESS_ASSETS_STAGE_SUMMARIZE` 阶段：
+
+1. 读取最终 `bundle.js` 和 `bundle.js.map`
+2. 用 `MagicString` 生成一层 `newCode -> oldCode` 的 transform map
+3. 执行 `remapping([transformMap, originalMap], () => null)`
+4. 回写新的 JS 和新的 `.map`
 
 ## 实测结果
 
